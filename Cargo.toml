@@ -1,0 +1,15 @@
+[package]
+name = "chips_screen_controller"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+eframe = "0.29.0"
+serialport = "4.5.1"
+
+[dependencies.windows]
+version = "0.58.0"
+features = [
+    "Foundation_Collections",
+    "Devices_Enumeration",
+]
