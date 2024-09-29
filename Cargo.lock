@@ -633,7 +633,9 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "serialport",
+ "thiserror",
  "windows 0.58.0",
+ "windows-result",
 ]
 
 [[package]]
