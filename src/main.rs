@@ -53,17 +53,40 @@ fn main() -> Result<()> {
         device.draw_rectangle(0, 0, 64, 64, color)?;
     }
 
-    eframe::run_simple_native("My egui App", options, move |ctx, _frame| {
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("My egui Application");
-            match chips_port_info.clone() {
-                Some(port_info) => ui.label(port_info.port_name),
-                None => ui.label("Failed to locate device."),
-            }
-        });
-    })?;
+    eframe::run_native(
+        "Image Viewer",
+        options,
+        Box::new(|cc| {
+            egui_extras::install_image_loaders(&cc.egui_ctx);
+            Ok(Box::new(App::new(chips_port_info)))
+        }),
+    )?;
 
     Ok(())
+}
+
+struct App {
+    chips_port_info: Option<SerialPortInfo>,
+}
+
+impl App {
+    pub fn new(chips_port_info: Option<SerialPortInfo>) -> Self {
+        Self { chips_port_info }
+    }
+}
+
+impl eframe::App for App {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.heading("My egui Application");
+            match self.chips_port_info.clone() {
+                Some(port_info) => ui.label(port_info.port_name),
+                None => ui.label("Failed to locate device."),
+            };
+
+            ui.image(egui::include_image!("test_image.png"));
+        });
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
