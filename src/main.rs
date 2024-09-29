@@ -4,14 +4,19 @@ use std::thread;
 use std::time::Duration;
 
 use eframe::egui;
+use image::{DynamicImage, ImageReader, RgbImage};
 use serialport::{
     DataBits, FlowControl, Parity, SerialPort, SerialPortInfo, SerialPortType, StopBits,
 };
 use thiserror::Error;
 use windows::Devices::Enumeration::DeviceInformation;
 
-const SCREEN_WIDTH: i32 = 320;
+// 3-inch model: 480x320
+// 5-inch model: 800x480
+// 7-inch model: 1024x600
+const SCREEN_WIDTH: i32 = 800;
 const SCREEN_HEIGHT: i32 = 480;
+const PIXEL_DEPTH: u32 = 2;
 
 #[derive(Error, Debug)]
 pub enum ChipsError {
@@ -23,6 +28,12 @@ pub enum ChipsError {
     InvalidRender(#[from] eframe::Error),
     #[error("invalid length {received} (expected >= {expected})")]
     InvalidLength { received: usize, expected: usize },
+    #[error("invalid image")]
+    InvalidImage(#[from] image::ImageError),
+    #[error("image too large for screen")]
+    ImageTooLarge,
+    #[error("image has an invalid format")]
+    ImageFormat,
     #[error("win32 error")]
     Win32(#[from] windows_result::Error),
     #[error("poisoned mutex")]
@@ -49,8 +60,14 @@ fn main() -> Result<()> {
         device.startup()?;
         device.set_brightness(100)?;
 
+        // Fix screen orientation
+        device.adjust_screen(true, true, true)?;
+
         let color = Color::new(255, 0, 0);
         device.draw_rectangle(0, 0, 64, 64, color)?;
+
+        let image = ImageReader::open("./src/test_image.png")?.decode()?;
+        device.draw_image(&image, 0, 0)?;
     }
 
     eframe::run_native(
@@ -168,6 +185,47 @@ impl ChipsDevice {
         }
 
         self.send_command_121(landscape_invert, SCREEN_WIDTH, SCREEN_HEIGHT)
+    }
+
+    pub fn draw_image(&mut self, image: &DynamicImage, x: i32, y: i32) -> Result<()> {
+        let width = image.width() as i32;
+        let height = image.height() as i32;
+        if width + x > SCREEN_WIDTH || height + y > SCREEN_HEIGHT {
+            return Err(ChipsError::ImageTooLarge);
+        }
+
+        // Convert to RGB so we have a known pixel format to convert from
+        let image = image.as_rgb8().ok_or_else(|| ChipsError::ImageFormat)?;
+
+        let mut buf = ChipsDevice::image_to_buffer(image);
+        self.send_command_simple(197, x, y, x + width - 1, y + height - 1)?;
+        self.write_to_serial_port(&mut buf)?;
+        thread::sleep(Duration::from_millis(10));
+
+        Ok(())
+    }
+
+    fn image_to_buffer(image: &RgbImage) -> Vec<u8> {
+        let buf_size = (PIXEL_DEPTH * image.width() * image.height()) as usize;
+        let mut buf: Vec<u8> = vec![0; buf_size];
+
+        for y in 0..image.height() {
+            for x in 0..image.width() {
+                // Pixel format is 16bpp, RGB565
+                let pixel = image.get_pixel(x, y);
+                let pixel_r = (pixel.0[0] >> 3) as u16; // 5 high bits
+                let pixel_g = (pixel.0[1] >> 2) as u16; // 6 high bits
+                let pixel_b = (pixel.0[2] >> 3) as u16; // 5 high bits
+                let pixel_16 = (pixel_r << 11) | (pixel_g << 5) | pixel_b;
+                let idx = (x * PIXEL_DEPTH + (PIXEL_DEPTH * image.width()) * y) as usize;
+
+                // Write to the buffer, flipping endianness (device is BE)
+                buf[idx] = (pixel_16 & 255) as u8;
+                buf[idx + 1] = (pixel_16 >> 8) as u8;
+            }
+        }
+
+        return buf;
     }
 
     pub fn draw_rectangle(
@@ -296,13 +354,18 @@ impl ChipsDevice {
     }
 
     fn open_chips_serial_port(chips_port_info: SerialPortInfo) -> Result<Box<dyn SerialPort>> {
+        // serialport doesn't support separate read and write timeouts, so we need to set a value
+        // long enough for both - the official app uses 1s as a read timeout with no write timeout.
+        // This value is mostly determined by how long it will take to write an image to the screen.
+        let io_timeout = Duration::from_secs(10);
+
         // Fails if another application is already using the device
         let serial_port = serialport::new(chips_port_info.port_name.clone(), 115200)
             .data_bits(DataBits::Eight)
             .flow_control(FlowControl::Hardware)
             .parity(Parity::None)
             .stop_bits(StopBits::One)
-            .timeout(Duration::from_secs(1))
+            .timeout(io_timeout)
             .open()?;
         Ok(serial_port)
     }
