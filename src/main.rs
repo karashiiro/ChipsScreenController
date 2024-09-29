@@ -4,7 +4,9 @@ use std::thread;
 use std::time::Duration;
 
 use eframe::egui;
-use serialport::{DataBits, Parity, SerialPort, SerialPortInfo, SerialPortType, StopBits};
+use serialport::{
+    DataBits, FlowControl, Parity, SerialPort, SerialPortInfo, SerialPortType, StopBits,
+};
 use thiserror::Error;
 use windows::Devices::Enumeration::DeviceInformation;
 
@@ -23,6 +25,8 @@ pub enum ChipsError {
     InvalidLength { received: usize, expected: usize },
     #[error("win32 error")]
     Win32(#[from] windows_result::Error),
+    #[error("poisoned mutex")]
+    PoisonedMutex,
 }
 
 pub type Result<T, E = ChipsError> = std::result::Result<T, E>;
@@ -62,6 +66,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+#[derive(Debug, Copy, Clone)]
 struct Color(u8, u8, u8);
 
 impl Color {
@@ -80,13 +85,6 @@ struct ChipsDevice {
     serial_port: Option<Box<dyn SerialPort>>,
 }
 
-impl Drop for ChipsDevice {
-    fn drop(&mut self) {
-        // TODO: Log if this fails
-        let _ = self.shutdown();
-    }
-}
-
 impl ChipsDevice {
     pub fn new(serial_port_info: SerialPortInfo) -> Self {
         return Self {
@@ -98,7 +96,6 @@ impl ChipsDevice {
     pub fn connect(&mut self) -> Result<()> {
         let mut serial_port = Self::open_chips_serial_port(self.serial_port_info.clone())?;
         serial_port.write_data_terminal_ready(true)?;
-        serial_port.write_request_to_send(true)?;
         self.serial_port = Some(serial_port);
         Ok(())
     }
@@ -110,6 +107,7 @@ impl ChipsDevice {
     }
 
     pub fn shutdown(&mut self) -> Result<()> {
+        // We don't implement Drop with this since that makes it easy to cause accidental shutdowns
         self.send_command_code(108)?;
         Ok(())
     }
@@ -267,8 +265,8 @@ impl ChipsDevice {
     }
 
     fn write_to_serial_port(&mut self, data: &[u8]) -> Result<()> {
-        if let Some(ref mut port) = &mut self.serial_port {
-            port.write_all(data)?;
+        if let Some(ref mut serial_port) = &mut self.serial_port {
+            serial_port.write_all(data)?;
         }
 
         Ok(())
@@ -278,6 +276,7 @@ impl ChipsDevice {
         // Fails if another application is already using the device
         let serial_port = serialport::new(chips_port_info.port_name.clone(), 115200)
             .data_bits(DataBits::Eight)
+            .flow_control(FlowControl::Hardware)
             .parity(Parity::None)
             .stop_bits(StopBits::One)
             .timeout(Duration::from_secs(1))
