@@ -33,9 +33,11 @@ fn main() -> Result<()> {
         // Fix screen orientation
         device.adjust_screen(true, true, true)?;
 
+        // Draw image
         let image = ImageReader::open("./src/test_image.png")?.decode()?;
         device.draw_image(&image, 0, 0)?;
 
+        // Draw bar graph
         let color = Color::new(255, 0, 0);
         device.draw_rectangle(0, 0, 300, 300, color)?;
 
@@ -48,9 +50,28 @@ fn main() -> Result<()> {
         device.draw_bar_graph(
             0,
             300,
+            100,
             Color::new(0, 0, 255),
             Color::new(0, 255, 0),
             &bar_graph_data,
+        )?;
+
+        // Draw line graph
+        device.draw_rectangle(320, 0, 620, 300, color)?;
+
+        let mut line_graph_data = vec![0; 300];
+        let mut rng = rand::thread_rng();
+        let distr = rand::distributions::Uniform::new_inclusive(0u8, 255u8);
+        for x in &mut line_graph_data {
+            *x = rng.sample(distr);
+        }
+        device.draw_line_graph(
+            320,
+            300,
+            100,
+            Color::new(0, 0, 255),
+            Color::new(0, 255, 0),
+            &line_graph_data,
         )?;
     }
 

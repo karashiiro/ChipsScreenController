@@ -127,10 +127,11 @@ impl ChipsDevice {
         return buf;
     }
 
-    pub fn draw_bar_graph(
+    pub fn draw_line_graph(
         &mut self,
         x: i32,
         y: i32,
+        count: usize,
         color_bg: Color,
         color_fg: Color,
         data: &[u8],
@@ -140,7 +141,69 @@ impl ChipsDevice {
         let ecc = ((((color_fg_16 as i32) >> 2) + 2 & 15) | (((color_bg_16 as i32) >> 3) + 3 & 240))
             as u8;
 
-        let count = data.len() - 1;
+        let chunk_size = 64;
+        let chunk_reserved = 12;
+        let chunk_offset = chunk_size - chunk_reserved - 1;
+        let mut source_index: usize = 0;
+        let mut right: usize;
+        while source_index < count {
+            let mut buf: Vec<u8> = vec![0; chunk_size];
+            right = chunk_offset;
+            if source_index + chunk_offset > count {
+                right = count - source_index;
+            }
+
+            let left = x as usize + source_index + 1;
+            let copy_len = right + 1;
+            buf[chunk_reserved..(chunk_reserved + copy_len)]
+                .copy_from_slice(&data[source_index..(source_index + copy_len)]);
+
+            if source_index == 0 {
+                self.kd_draw_buf(
+                    144,
+                    (left as i32) | 32768,
+                    y,
+                    right as i32,
+                    color_bg_16 as i32,
+                    color_fg_16 as i32,
+                    ecc,
+                    &mut buf,
+                )?;
+            } else {
+                self.kd_draw_buf(
+                    144,
+                    left as i32,
+                    y,
+                    right as i32,
+                    color_bg_16 as i32,
+                    color_fg_16 as i32,
+                    ecc,
+                    &mut buf,
+                )?;
+            }
+
+            source_index += right;
+        }
+
+        thread::sleep(Duration::from_millis(5));
+
+        Ok(())
+    }
+
+    pub fn draw_bar_graph(
+        &mut self,
+        x: i32,
+        y: i32,
+        count: usize,
+        color_bg: Color,
+        color_fg: Color,
+        data: &[u8],
+    ) -> Result<()> {
+        let color_bg_16 = color_bg.as_serial();
+        let color_fg_16 = color_fg.as_serial();
+        let ecc = ((((color_fg_16 as i32) >> 2) + 2 & 15) | (((color_bg_16 as i32) >> 3) + 3 & 240))
+            as u8;
+
         let chunk_size = 64;
         let chunk_reserved = 12;
         let chunk_offset = chunk_size - chunk_reserved;
