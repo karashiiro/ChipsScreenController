@@ -18,6 +18,15 @@ const SCREEN_WIDTH: i32 = 800;
 const SCREEN_HEIGHT: i32 = 480;
 const PIXEL_DEPTH: u32 = 2;
 
+#[derive(Debug, Clone, Copy)]
+pub struct Point(i32, i32);
+
+impl Point {
+    pub fn new(x: i32, y: i32) -> Self {
+        Self(x, y)
+    }
+}
+
 #[derive(Debug)]
 pub struct ChipsDevice {
     serial_port_info: SerialPortInfo,
@@ -125,6 +134,85 @@ impl ChipsDevice {
         }
 
         return buf;
+    }
+
+    pub fn draw_pixels(&mut self, color: Color, points: &[Point]) -> Result<()> {
+        if points.len() == 0 {
+            return Ok(());
+        }
+
+        let mut list_1: Vec<u8> = vec![];
+        let mut source: Vec<Point> = vec![];
+        let mut list_2: Vec<u8> = vec![];
+
+        for point in points {
+            if point.0 < 256 && point.1 < 256 {
+                list_1.push(point.0 as u8);
+                list_1.push(point.1 as u8);
+            } else {
+                source.push(*point);
+            }
+        }
+
+        self.draw_pixels_raw(0, 0, color, &list_1)?;
+
+        if source.len() == 0 {
+            return Ok(());
+        }
+
+        let offset_x = source.iter().map(|point| point.0).min().unwrap_or_default();
+        if source.iter().any(|point| point.0 - offset_x > 255) {
+            return Err(ChipsError::BoundsTooLarge);
+        }
+
+        let offset_y = source.iter().map(|point| point.1).min().unwrap_or_default();
+        if source.iter().any(|point| point.1 - offset_y > 255) {
+            return Err(ChipsError::BoundsTooLarge);
+        }
+
+        for point in source {
+            list_2.push((point.0 - offset_x) as u8);
+            list_2.push((point.1 - offset_y) as u8);
+        }
+
+        self.draw_pixels_raw(offset_x, offset_y, color, &list_2)?;
+
+        Ok(())
+    }
+
+    fn draw_pixels_raw(
+        &mut self,
+        offset_x: i32,
+        offset_y: i32,
+        color: Color,
+        coordinates: &[u8],
+    ) -> Result<()> {
+        let chunk_size = 64;
+        let chunk_reserved = 8;
+        let chunk_offset = chunk_size - chunk_reserved;
+
+        let color_16 = color.as_serial();
+        let mut source_index = 0;
+        let mut buf = vec![0; chunk_size];
+        buf[6] = (color_16 >> 8) as u8;
+        buf[7] = (color_16 & 255) as u8;
+
+        let mut right = chunk_offset;
+        while source_index < coordinates.len() {
+            if source_index + chunk_offset > coordinates.len() {
+                right = coordinates.len() - source_index;
+            }
+
+            let copy_len = right;
+            buf[chunk_reserved..(chunk_reserved + copy_len)]
+                .copy_from_slice(&coordinates[source_index..(source_index + copy_len)]);
+
+            self.send_command(195, offset_x, offset_y, right as i32, 0, &mut buf)?;
+
+            source_index += right;
+        }
+
+        Ok(())
     }
 
     pub fn draw_line_graph(

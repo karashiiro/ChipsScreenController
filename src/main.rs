@@ -3,6 +3,7 @@
 use crate::color::Color;
 use crate::device::{get_chips_id, get_chips_serial_port_info, ChipsDevice};
 use crate::errors::Result;
+use device::Point;
 use eframe::egui;
 use image::ImageReader;
 use rand::Rng;
@@ -43,10 +44,11 @@ fn main() -> Result<()> {
 
         let mut bar_graph_data = vec![0; 300];
         let mut rng = rand::thread_rng();
-        let distr = rand::distributions::Uniform::new_inclusive(0u8, 255u8);
+        let distr = rand::distributions::Uniform::new_inclusive(0u8, 100u8);
         for x in &mut bar_graph_data {
             *x = rng.sample(distr);
         }
+
         device.draw_bar_graph(
             0,
             300,
@@ -61,10 +63,11 @@ fn main() -> Result<()> {
 
         let mut line_graph_data = vec![0; 300];
         let mut rng = rand::thread_rng();
-        let distr = rand::distributions::Uniform::new_inclusive(0u8, 255u8);
+        let distr = rand::distributions::Uniform::new_inclusive(0u8, 100u8);
         for x in &mut line_graph_data {
             *x = rng.sample(distr);
         }
+
         device.draw_line_graph(
             320,
             300,
@@ -73,6 +76,18 @@ fn main() -> Result<()> {
             Color::new(0, 255, 0),
             &line_graph_data,
         )?;
+
+        // Draw grid with pixels
+        let mut grid_points: Vec<Point> = vec![];
+        for x in 200..=400 {
+            for y in 100..=300 {
+                if x % 100 == 0 || y % 100 == 0 {
+                    grid_points.push(Point::new(x + 10, y + 10));
+                }
+            }
+        }
+
+        device.draw_pixels(Color::new(0, 0, 255), &grid_points)?;
     }
 
     eframe::run_native(

@@ -14,6 +14,8 @@ pub enum ChipsError {
     InvalidImage(#[from] image::ImageError),
     #[error("image too large for screen")]
     ImageTooLarge,
+    #[error("coordinate bounds too large for screen")]
+    BoundsTooLarge,
     #[error("image has an invalid format")]
     ImageFormat,
     #[error("win32 error")]
