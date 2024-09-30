@@ -11,7 +11,7 @@ use serialport::{
 };
 use windows::Devices::Enumeration::DeviceInformation;
 
-// 3-inch model: 480x320
+// 3.5-inch model: 480x320
 // 5-inch model: 800x480
 // 7-inch model: 1024x600
 const SCREEN_WIDTH: i32 = 800;
