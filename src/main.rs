@@ -5,6 +5,7 @@ use crate::device::{get_chips_id, get_chips_serial_port_info, ChipsDevice};
 use crate::errors::Result;
 use eframe::egui;
 use image::ImageReader;
+use rand::Rng;
 use serialport::SerialPortInfo;
 
 mod color;
@@ -32,11 +33,25 @@ fn main() -> Result<()> {
         // Fix screen orientation
         device.adjust_screen(true, true, true)?;
 
-        let color = Color::new(255, 0, 0);
-        device.draw_rectangle(0, 0, 64, 64, color)?;
-
         let image = ImageReader::open("./src/test_image.png")?.decode()?;
         device.draw_image(&image, 0, 0)?;
+
+        let color = Color::new(255, 0, 0);
+        device.draw_rectangle(0, 0, 300, 300, color)?;
+
+        let mut bar_graph_data = vec![0; 300];
+        let mut rng = rand::thread_rng();
+        let distr = rand::distributions::Uniform::new_inclusive(0u8, 255u8);
+        for x in &mut bar_graph_data {
+            *x = rng.sample(distr);
+        }
+        device.draw_bar_graph(
+            0,
+            300,
+            Color::new(0, 0, 255),
+            Color::new(0, 255, 0),
+            &bar_graph_data,
+        )?;
     }
 
     eframe::run_native(

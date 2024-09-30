@@ -727,6 +727,7 @@ dependencies = [
  "egui_extras",
  "gif",
  "image",
+ "rand",
  "serialport",
  "thiserror",
  "windows 0.58.0",

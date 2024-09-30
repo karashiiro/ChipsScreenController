@@ -127,6 +127,56 @@ impl ChipsDevice {
         return buf;
     }
 
+    pub fn draw_bar_graph(
+        &mut self,
+        x: i32,
+        y: i32,
+        color_bg: Color,
+        color_fg: Color,
+        data: &[u8],
+    ) -> Result<()> {
+        let color_bg_16 = color_bg.as_serial();
+        let color_fg_16 = color_fg.as_serial();
+        let ecc = ((((color_fg_16 as i32) >> 2) + 2 & 15) | (((color_bg_16 as i32) >> 3) + 3 & 240))
+            as u8;
+
+        let count = data.len() - 1;
+        let chunk_size = 64;
+        let chunk_reserved = 12;
+        let chunk_offset = chunk_size - chunk_reserved;
+        let mut source_index: usize = 0;
+        let mut right: usize;
+        while source_index < count {
+            let mut buf: Vec<u8> = vec![0; chunk_size];
+            right = chunk_offset;
+            if source_index + chunk_offset > count {
+                right = count - source_index;
+            }
+
+            let left = x as usize + source_index;
+            let copy_len = right;
+            buf[chunk_reserved..(chunk_reserved + copy_len)]
+                .copy_from_slice(&data[source_index..(source_index + copy_len)]);
+
+            self.kd_draw_buf(
+                137,
+                left as i32,
+                y,
+                right as i32,
+                color_bg_16 as i32,
+                color_fg_16 as i32,
+                ecc,
+                &mut buf,
+            )?;
+
+            source_index += right;
+        }
+
+        thread::sleep(Duration::from_millis(5));
+
+        Ok(())
+    }
+
     pub fn draw_rectangle(
         &mut self,
         left: i32,
@@ -137,20 +187,43 @@ impl ChipsDevice {
     ) -> Result<()> {
         let color_16 = color.as_serial();
         let ecc = ((((color_16 as i32) >> 2) + 2 & 15) | ((bottom >> 3) + 3 & 240)) as u8;
-        self.kd_draw_rectangle(136, left, top, right, bottom, color_16, ecc)
+        self.kd_draw(136, left, top, right, bottom, color_16 as i32, ecc)
     }
 
-    fn kd_draw_rectangle(
+    fn kd_draw(
         &mut self,
         command_code: u8,
         left: i32,
         top: i32,
         right: i32,
         bottom: i32,
-        color: u16,
+        color: i32,
         ecc: u8,
     ) -> Result<()> {
         let mut data = vec![0; 12];
+        self.kd_draw_buf(
+            command_code,
+            left,
+            top,
+            right,
+            bottom,
+            color,
+            ecc,
+            &mut data,
+        )
+    }
+
+    fn kd_draw_buf(
+        &mut self,
+        command_code: u8,
+        left: i32,
+        top: i32,
+        right: i32,
+        bottom: i32,
+        color: i32,
+        ecc: u8,
+        data: &mut [u8],
+    ) -> Result<()> {
         data[0] = (left >> 8) as u8;
         data[1] = (left & 255) as u8;
         data[2] = (top >> 8) as u8;
@@ -164,7 +237,7 @@ impl ChipsDevice {
         data[10] = ecc;
         data[11] = command_code;
 
-        self.write_to_serial_port(&mut data)?;
+        self.write_to_serial_port(data)?;
         Ok(())
     }
 
