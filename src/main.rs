@@ -8,10 +8,12 @@ use eframe::egui;
 use image::ImageReader;
 use rand::Rng;
 use serialport::SerialPortInfo;
+use widget_renderer::WidgetRenderer;
 
 mod color;
 mod device;
 mod errors;
+mod widget_renderer;
 
 fn main() -> Result<()> {
     let options = eframe::NativeOptions {
@@ -34,13 +36,18 @@ fn main() -> Result<()> {
         // Fix screen orientation
         device.adjust_screen(true, true, true)?;
 
+        let mut widget_renderer = WidgetRenderer::new(&mut device);
+
         // Draw image
         let image = ImageReader::open("./src/test_image.png")?.decode()?;
-        device.draw_image(&image, 0, 0)?;
+        widget_renderer.render_image(&image, 0, 0)?;
+
+        // Draw rectangle
+        let color = Color::new(255, 0, 0);
+        widget_renderer.render_rectangle(0, 0, 32, 32, color)?;
 
         // Draw bar graph
-        let color = Color::new(255, 0, 0);
-        device.draw_rectangle(0, 0, 300, 300, color)?;
+        widget_renderer.render_graph_background(0, 300, 200, 100, color)?;
 
         let mut bar_graph_data = vec![0; 300];
         let mut rng = rand::thread_rng();
@@ -49,7 +56,7 @@ fn main() -> Result<()> {
             *x = rng.sample(distr);
         }
 
-        device.draw_bar_graph(
+        widget_renderer.render_bar_graph(
             0,
             300,
             100,
@@ -59,7 +66,7 @@ fn main() -> Result<()> {
         )?;
 
         // Draw line graph
-        device.draw_rectangle(320, 0, 620, 300, color)?;
+        widget_renderer.render_graph_background(320, 300, 200, 100, color)?;
 
         let mut line_graph_data = vec![0; 300];
         let mut rng = rand::thread_rng();
@@ -68,7 +75,7 @@ fn main() -> Result<()> {
             *x = rng.sample(distr);
         }
 
-        device.draw_line_graph(
+        widget_renderer.render_line_graph(
             320,
             300,
             100,
@@ -87,7 +94,7 @@ fn main() -> Result<()> {
             }
         }
 
-        device.draw_pixels(Color::new(0, 0, 255), &grid_points)?;
+        widget_renderer.render_pixels(Color::new(0, 0, 255), &grid_points)?;
     }
 
     eframe::run_native(
