@@ -5,6 +5,7 @@ use crate::device::{get_chips_id, get_chips_serial_port_info, ChipsDevice};
 use crate::errors::Result;
 use device::Point;
 use eframe::egui;
+use fontdue::layout::{CoordinateSystem, Layout, TextStyle};
 use fontdue::Font;
 use image::ImageReader;
 use rand::Rng;
@@ -101,19 +102,30 @@ fn main() -> Result<()> {
         let font = include_bytes!("../resources/roboto/Roboto-Regular.ttf") as &[u8];
         let roboto_regular = Font::from_bytes(font, fontdue::FontSettings::default()).unwrap();
 
-        // TODO: Ideally we should be able to rasterize more than one character
-        let (metrics, bitmap) = roboto_regular.rasterize('g', 24.0);
         let mut text_coordinate_list: Vec<Point> = vec![];
-        for x in 0..metrics.width {
-            for y in 0..metrics.height {
-                let value = bitmap[x + metrics.width * y];
-                if value != 0 {
-                    // TODO: Transparency requires keeping a local buffer of the screen state.
-                    // We can't receive data from the device quickly, so we need to constantly keep
-                    // track of what the current screen state should be locally so we know how to
-                    // handle transparency. We can then do an HSV calculation to figure out how to
-                    // overlay the values.
-                    text_coordinate_list.push(Point::new(500 + x as i32, 200 + y as i32));
+
+        let fonts = &[roboto_regular];
+        let mut layout = Layout::new(CoordinateSystem::PositiveYDown);
+        layout.append(fonts, &TextStyle::new("Hello ", 35.0, 0));
+        layout.append(fonts, &TextStyle::new("world!", 40.0, 0));
+        println!("{:?}", layout.glyphs());
+
+        for glyph in layout.glyphs() {
+            let (metrics, bitmap) = fonts[glyph.font_index].rasterize(glyph.parent, glyph.key.px);
+            for x in 0..metrics.width {
+                for y in 0..metrics.height {
+                    let value = bitmap[x + metrics.width * y];
+                    if value != 0 {
+                        // TODO: Transparency requires keeping a local buffer of the screen state.
+                        // We can't receive data from the device quickly, so we need to constantly keep
+                        // track of what the current screen state should be locally so we know how to
+                        // handle transparency. We can then do an HSV calculation to figure out how to
+                        // overlay the values.
+                        text_coordinate_list.push(Point::new(
+                            500 + glyph.x as i32 + x as i32,
+                            200 + glyph.y as i32 + y as i32,
+                        ));
+                    }
                 }
             }
         }
