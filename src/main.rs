@@ -102,35 +102,13 @@ fn main() -> Result<()> {
         let font = include_bytes!("../resources/roboto/Roboto-Regular.ttf") as &[u8];
         let roboto_regular = Font::from_bytes(font, fontdue::FontSettings::default()).unwrap();
 
-        let mut text_coordinate_list: Vec<Point> = vec![];
-
         let fonts = &[roboto_regular];
         let mut layout = Layout::new(CoordinateSystem::PositiveYDown);
         layout.append(fonts, &TextStyle::new("Hello ", 35.0, 0));
         layout.append(fonts, &TextStyle::new("world!", 40.0, 0));
         println!("{:?}", layout.glyphs());
 
-        for glyph in layout.glyphs() {
-            let (metrics, bitmap) = fonts[glyph.font_index].rasterize(glyph.parent, glyph.key.px);
-            for x in 0..metrics.width {
-                for y in 0..metrics.height {
-                    let value = bitmap[x + metrics.width * y];
-                    if value != 0 {
-                        // TODO: Transparency requires keeping a local buffer of the screen state.
-                        // We can't receive data from the device quickly, so we need to constantly keep
-                        // track of what the current screen state should be locally so we know how to
-                        // handle transparency. We can then do an HSV calculation to figure out how to
-                        // overlay the values.
-                        text_coordinate_list.push(Point::new(
-                            500 + glyph.x as i32 + x as i32,
-                            200 + glyph.y as i32 + y as i32,
-                        ));
-                    }
-                }
-            }
-        }
-
-        widget_renderer.render_pixels(Color::new(255, 255, 255), &text_coordinate_list)?;
+        widget_renderer.render_text(&layout, fonts, 500, 200, Color::new(255, 255, 255))?;
     }
 
     eframe::run_native(

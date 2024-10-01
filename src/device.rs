@@ -14,9 +14,9 @@ use windows::Devices::Enumeration::DeviceInformation;
 // 3.5-inch model: 480x320
 // 5-inch model: 800x480
 // 7-inch model: 1024x600
-const SCREEN_WIDTH: i32 = 800;
-const SCREEN_HEIGHT: i32 = 480;
-const PIXEL_DEPTH: u32 = 2;
+pub const SCREEN_WIDTH: i32 = 800;
+pub const SCREEN_HEIGHT: i32 = 480;
+pub const PIXEL_DEPTH: u32 = 2;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Point(i32, i32);
