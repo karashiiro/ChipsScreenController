@@ -46,10 +46,10 @@ fn main() -> Result<()> {
 
         // Draw rectangle
         let color = Color::new(255, 0, 0);
-        widget_renderer.render_rectangle(0, 0, 32, 32, color)?;
+        widget_renderer.render_rectangle(0, 0, 10, 10, color)?;
 
         // Draw bar graph
-        widget_renderer.render_graph_background(0, 300, 200, 100, color)?;
+        widget_renderer.render_graph_background(0, 250, 200, 100, color)?;
 
         let mut bar_graph_data = vec![0; 300];
         let mut rng = rand::thread_rng();
@@ -60,7 +60,7 @@ fn main() -> Result<()> {
 
         widget_renderer.render_bar_graph(
             0,
-            300,
+            250,
             100,
             Color::new(0, 0, 255),
             Color::new(0, 255, 0),
@@ -68,7 +68,7 @@ fn main() -> Result<()> {
         )?;
 
         // Draw line graph
-        widget_renderer.render_graph_background(320, 300, 200, 100, color)?;
+        widget_renderer.render_graph_background(320, 250, 200, 100, color)?;
 
         let mut line_graph_data = vec![0; 300];
         let mut rng = rand::thread_rng();
@@ -79,7 +79,7 @@ fn main() -> Result<()> {
 
         widget_renderer.render_line_graph(
             320,
-            300,
+            250,
             100,
             Color::new(0, 0, 255),
             Color::new(0, 255, 0),
@@ -91,7 +91,7 @@ fn main() -> Result<()> {
         for x in 200..=400 {
             for y in 100..=300 {
                 if x % 100 == 0 || y % 100 == 0 {
-                    grid_points.push(Point::new(x + 10, y + 10));
+                    grid_points.push(Point::new(x - 50, y - 50));
                 }
             }
         }
@@ -106,9 +106,8 @@ fn main() -> Result<()> {
         let mut layout = Layout::new(CoordinateSystem::PositiveYDown);
         layout.append(fonts, &TextStyle::new("Hello ", 35.0, 0));
         layout.append(fonts, &TextStyle::new("world!", 40.0, 0));
-        println!("{:?}", layout.glyphs());
 
-        widget_renderer.render_text(&layout, fonts, 500, 200, Color::new(255, 255, 255))?;
+        widget_renderer.render_text(&layout, fonts, 500, 100, Color::new(255, 255, 255))?;
     }
 
     eframe::run_native(
