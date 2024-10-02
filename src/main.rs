@@ -1,10 +1,13 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::thread;
+use std::time::Duration;
 
 use crate::color::Color;
 use crate::device::{get_chips_id, get_chips_serial_port_info, ChipsDevice};
 use crate::errors::Result;
+use crossbeam::channel::bounded;
+use crossbeam::select;
 use device::Point;
 use eframe::egui;
 use fontdue::layout::{CoordinateSystem, Layout, TextStyle};
@@ -29,30 +32,48 @@ fn main() -> Result<()> {
     let chips_port_info = get_chips_serial_port_info(&chips_device_id);
 
     thread::scope(|s| {
+        let (s1, r) = bounded(1);
+
         let port_info_copy = chips_port_info.clone();
         s.spawn(move || {
-            let chips_device = port_info_copy
+            let mut chips_device = port_info_copy
                 .clone()
-                .and_then(|port_info| Some(ChipsDevice::new(port_info)));
-            if let Some(mut device) = chips_device {
-                println!("{:?}", test_device(&mut device));
+                .and_then(|port_info| Some(ChipsDevice::new(port_info)))
+                .expect("failed to create device handle");
+            if let Err(err) = init_device(&mut chips_device) {
+                println!("{:?}", err);
+            }
+            loop {
+                select! {
+                    recv(r) -> _ => break,
+                    default(Duration::from_secs(1)) => {
+                        if let Err(err) = test_device(&mut chips_device) {
+                            println!("{:?}", err);
+                        }
+                    }
+                }
             }
         });
 
-        eframe::run_native(
+        let result = eframe::run_native(
             "Image Viewer",
             options,
             Box::new(|cc| {
                 egui_extras::install_image_loaders(&cc.egui_ctx);
                 Ok(Box::new(App::new(chips_port_info)))
             }),
-        )
+        );
+
+        s1.send(true)
+            .expect("failed to send application shutdown to worker thread");
+
+        result
     })?;
 
     Ok(())
 }
 
-fn test_device(device: &mut ChipsDevice) -> Result<()> {
+fn init_device(device: &mut ChipsDevice) -> Result<()> {
     device.connect()?;
     device.startup()?;
     device.set_brightness(100)?;
@@ -60,6 +81,10 @@ fn test_device(device: &mut ChipsDevice) -> Result<()> {
     // Fix screen orientation
     device.adjust_screen(true, true, true)?;
 
+    Ok(())
+}
+
+fn test_device(device: &mut ChipsDevice) -> Result<()> {
     let mut widget_renderer = WidgetRenderer::new(device);
 
     // Draw image
