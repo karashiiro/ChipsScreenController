@@ -1,4 +1,10 @@
-use windows::Win32::{Foundation::FILETIME, System::Threading::GetSystemTimes};
+use windows::Win32::{
+    Foundation::FILETIME,
+    System::{
+        SystemInformation::{GlobalMemoryStatusEx, MEMORYSTATUSEX},
+        Threading::GetSystemTimes,
+    },
+};
 
 use crate::errors::Result;
 
@@ -46,6 +52,17 @@ impl SystemInfo {
         let exec_time_ratio = (total_exec_time_diff as f64) / (total_time_diff as f64);
 
         Ok(exec_time_ratio)
+    }
+
+    pub fn get_memory_usage(&self) -> Result<f64> {
+        let mut mem_info = unsafe { std::mem::zeroed::<MEMORYSTATUSEX>() };
+        mem_info.dwLength = std::mem::size_of::<MEMORYSTATUSEX>() as u32;
+        unsafe { GlobalMemoryStatusEx(&mut mem_info) }?;
+
+        let physical_mem_used = mem_info.ullTotalPhys - mem_info.ullAvailPhys;
+        let mem_ratio = (physical_mem_used as f64) / (mem_info.ullTotalPhys as f64);
+
+        Ok(mem_ratio)
     }
 }
 

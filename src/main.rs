@@ -94,6 +94,9 @@ fn test_device(device: &mut ChipsDevice, sys_info: &mut SystemInfo) -> Result<()
     let cpu_usage = sys_info.get_cpu_usage()?;
     let cpu_usage_percent = format!("{:.0}%", cpu_usage * 100.0);
 
+    let mem_usage = sys_info.get_memory_usage()?;
+    let mem_usage_percent = format!("{:.0}%", mem_usage * 100.0);
+
     // Draw image
     let image = ImageReader::open("./src/test_image.png")?.decode()?;
     widget_renderer.render_image(&image, 0, 0)?;
@@ -159,6 +162,8 @@ fn test_device(device: &mut ChipsDevice, sys_info: &mut SystemInfo) -> Result<()
     let fonts = &[roboto_regular];
     let mut layout = Layout::new(CoordinateSystem::PositiveYDown);
     layout.append(fonts, &TextStyle::new(&cpu_usage_percent, 35.0, 0));
+    layout.append(fonts, &TextStyle::new(" ", 35.0, 0));
+    layout.append(fonts, &TextStyle::new(&mem_usage_percent, 35.0, 0));
 
     widget_renderer.render_text(&layout, fonts, 500, 100, Color::new(255, 255, 255))?;
 
