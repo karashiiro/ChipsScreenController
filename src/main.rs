@@ -15,11 +15,13 @@ use fontdue::Font;
 use image::ImageReader;
 use rand::Rng;
 use serialport::SerialPortInfo;
+use system_info::SystemInfo;
 use widget_renderer::WidgetRenderer;
 
 mod color;
 mod device;
 mod errors;
+mod system_info;
 mod widget_renderer;
 
 fn main() -> Result<()> {
@@ -43,11 +45,13 @@ fn main() -> Result<()> {
             if let Err(err) = init_device(&mut chips_device) {
                 println!("{:?}", err);
             }
+
+            let mut sys_info = SystemInfo::new();
             loop {
                 select! {
                     recv(r) -> _ => break,
                     default(Duration::from_secs(1)) => {
-                        if let Err(err) = test_device(&mut chips_device) {
+                        if let Err(err) = test_device(&mut chips_device, &mut sys_info) {
                             println!("{:?}", err);
                         }
                     }
@@ -84,8 +88,11 @@ fn init_device(device: &mut ChipsDevice) -> Result<()> {
     Ok(())
 }
 
-fn test_device(device: &mut ChipsDevice) -> Result<()> {
+fn test_device(device: &mut ChipsDevice, sys_info: &mut SystemInfo) -> Result<()> {
     let mut widget_renderer = WidgetRenderer::new(device);
+
+    let cpu_usage = sys_info.get_cpu_usage()?;
+    let cpu_usage_percent = format!("{:.0}%", cpu_usage * 100.0);
 
     // Draw image
     let image = ImageReader::open("./src/test_image.png")?.decode()?;
@@ -151,8 +158,7 @@ fn test_device(device: &mut ChipsDevice) -> Result<()> {
 
     let fonts = &[roboto_regular];
     let mut layout = Layout::new(CoordinateSystem::PositiveYDown);
-    layout.append(fonts, &TextStyle::new("Hello ", 35.0, 0));
-    layout.append(fonts, &TextStyle::new("world!", 40.0, 0));
+    layout.append(fonts, &TextStyle::new(&cpu_usage_percent, 35.0, 0));
 
     widget_renderer.render_text(&layout, fonts, 500, 100, Color::new(255, 255, 255))?;
 
