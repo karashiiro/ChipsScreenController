@@ -1,3 +1,5 @@
+use nvml_wrapper::Nvml;
+use once_cell::sync::Lazy;
 use windows::Win32::{
     Foundation::FILETIME,
     System::{
@@ -8,17 +10,25 @@ use windows::Win32::{
 
 use crate::errors::Result;
 
+static NVML: Lazy<Option<Nvml>> = Lazy::new(|| match Nvml::init() {
+    Err(err) => {
+        println!("{}", err);
+        None
+    }
+    Ok(nvml) => Some(nvml),
+});
+
 pub struct SystemInfo {
     last_total_time: u64,
     last_total_exec_time: u64,
 }
 
 impl SystemInfo {
-    pub fn new() -> Self {
-        Self {
+    pub fn new() -> Result<Self> {
+        Ok(Self {
             last_total_time: 0,
             last_total_exec_time: 0,
-        }
+        })
     }
 
     pub fn get_cpu_usage(&mut self) -> Result<f64> {
@@ -63,6 +73,18 @@ impl SystemInfo {
         let mem_ratio = (physical_mem_used as f64) / (mem_info.ullTotalPhys as f64);
 
         Ok(mem_ratio)
+    }
+
+    pub fn get_gpu_usage(&self) -> Result<f64> {
+        if let Some(nvml) = NVML.as_ref() {
+            // TODO: Support other GPUs somehow
+            let gpu = nvml.device_by_index(0)?;
+            let usage = gpu.utilization_rates()?;
+            let usage_ratio = usage.gpu as f64 / 100.0;
+            return Ok(usage_ratio);
+        }
+
+        Ok(0.0)
     }
 }
 

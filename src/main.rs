@@ -25,11 +25,6 @@ mod system_info;
 mod widget_renderer;
 
 fn main() -> Result<()> {
-    let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([320.0, 240.0]),
-        ..Default::default()
-    };
-
     let chips_device_id = get_chips_id().unwrap().unwrap();
     let chips_port_info = get_chips_serial_port_info(&chips_device_id);
 
@@ -46,7 +41,8 @@ fn main() -> Result<()> {
                 println!("{:?}", err);
             }
 
-            let mut sys_info = SystemInfo::new();
+            let mut sys_info =
+                SystemInfo::new().expect("failed to create system information interface");
             loop {
                 select! {
                     recv(r) -> _ => break,
@@ -59,20 +55,31 @@ fn main() -> Result<()> {
             }
         });
 
-        let result = eframe::run_native(
-            "Image Viewer",
-            options,
-            Box::new(|cc| {
-                egui_extras::install_image_loaders(&cc.egui_ctx);
-                Ok(Box::new(App::new(chips_port_info)))
-            }),
-        );
+        let result = run_app(chips_port_info);
 
         s1.send(true)
             .expect("failed to send application shutdown to worker thread");
 
         result
     })?;
+
+    Ok(())
+}
+
+fn run_app(chips_port_info: Option<SerialPortInfo>) -> Result<()> {
+    let options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default().with_inner_size([320.0, 240.0]),
+        ..Default::default()
+    };
+
+    eframe::run_native(
+        "Image Viewer",
+        options,
+        Box::new(|cc| {
+            egui_extras::install_image_loaders(&cc.egui_ctx);
+            Ok(Box::new(App::new(chips_port_info)))
+        }),
+    )?;
 
     Ok(())
 }
@@ -92,10 +99,13 @@ fn test_device(device: &mut ChipsDevice, sys_info: &mut SystemInfo) -> Result<()
     let mut widget_renderer = WidgetRenderer::new(device);
 
     let cpu_usage = sys_info.get_cpu_usage()?;
-    let cpu_usage_percent = format!("{:.0}%", cpu_usage * 100.0);
+    let cpu_usage_percent = format!("{:.0}%", (cpu_usage * 100.0).ceil());
 
     let mem_usage = sys_info.get_memory_usage()?;
-    let mem_usage_percent = format!("{:.0}%", mem_usage * 100.0);
+    let mem_usage_percent = format!("{:.0}%", (mem_usage * 100.0).ceil());
+
+    let gpu_usage = sys_info.get_gpu_usage().unwrap_or(0.0);
+    let gpu_usage_percent = format!("{:.0}%", (gpu_usage * 100.0).ceil());
 
     // Draw image
     let image = ImageReader::open("./src/test_image.png")?.decode()?;
@@ -164,6 +174,8 @@ fn test_device(device: &mut ChipsDevice, sys_info: &mut SystemInfo) -> Result<()
     layout.append(fonts, &TextStyle::new(&cpu_usage_percent, 35.0, 0));
     layout.append(fonts, &TextStyle::new(" ", 35.0, 0));
     layout.append(fonts, &TextStyle::new(&mem_usage_percent, 35.0, 0));
+    layout.append(fonts, &TextStyle::new(" ", 35.0, 0));
+    layout.append(fonts, &TextStyle::new(&gpu_usage_percent, 35.0, 0));
 
     widget_renderer.render_text(&layout, fonts, 500, 100, Color::new(255, 255, 255))?;
 
