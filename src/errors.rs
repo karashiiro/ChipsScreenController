@@ -16,8 +16,6 @@ pub enum ChipsError {
     ImageTooLarge,
     #[error("coordinate bounds too large for screen")]
     BoundsTooLarge,
-    #[error("image has an invalid format")]
-    ImageFormat,
     #[error("nvml error")]
     Nvml(#[from] nvml_wrapper::error::NvmlError),
     #[error("win32 error")]

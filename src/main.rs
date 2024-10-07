@@ -108,15 +108,17 @@ fn test_device(device: &mut ChipsDevice, sys_info: &mut SystemInfo) -> Result<()
     let gpu_usage_percent = format!("{:.0}%", (gpu_usage * 100.0).ceil());
 
     // Draw image
-    let image = ImageReader::open("./src/test_image.png")?.decode()?;
+    let image = ImageReader::open("./src/test_image_2.png")?.decode()?;
     widget_renderer.render_image(&image, 0, 0)?;
 
     // Draw rectangle
-    let color = Color::new(255, 0, 0);
-    widget_renderer.render_rectangle(0, 0, 10, 10, color)?;
+    let bg_color = Color::new(63, 67, 81);
+    let fg_color = Color::new(228, 207, 154);
+
+    widget_renderer.render_rectangle(0, 0, 10, 10, bg_color)?;
 
     // Draw bar graph
-    widget_renderer.render_graph_background(0, 250, 200, 100, color)?;
+    widget_renderer.render_graph_background(0, 250, 200, 100, bg_color)?;
 
     let mut bar_graph_data = vec![0; 300];
     let mut rng = rand::thread_rng();
@@ -125,17 +127,10 @@ fn test_device(device: &mut ChipsDevice, sys_info: &mut SystemInfo) -> Result<()
         *x = rng.sample(distr);
     }
 
-    widget_renderer.render_bar_graph(
-        0,
-        250,
-        100,
-        Color::new(0, 0, 255),
-        Color::new(0, 255, 0),
-        &bar_graph_data,
-    )?;
+    widget_renderer.render_bar_graph(0, 250, 100, bg_color, fg_color, &bar_graph_data)?;
 
     // Draw line graph
-    widget_renderer.render_graph_background(320, 250, 200, 100, color)?;
+    widget_renderer.render_graph_background(320, 250, 200, 100, fg_color)?;
 
     let mut line_graph_data = vec![0; 300];
     let mut rng = rand::thread_rng();
@@ -144,14 +139,7 @@ fn test_device(device: &mut ChipsDevice, sys_info: &mut SystemInfo) -> Result<()
         *x = rng.sample(distr);
     }
 
-    widget_renderer.render_line_graph(
-        320,
-        250,
-        100,
-        Color::new(0, 0, 255),
-        Color::new(0, 255, 0),
-        &line_graph_data,
-    )?;
+    widget_renderer.render_line_graph(320, 250, 100, bg_color, fg_color, &line_graph_data)?;
 
     // Draw grid with pixels
     let mut grid_points: Vec<Point> = vec![];
@@ -163,7 +151,7 @@ fn test_device(device: &mut ChipsDevice, sys_info: &mut SystemInfo) -> Result<()
         }
     }
 
-    widget_renderer.render_pixels(Color::new(0, 0, 255), &grid_points)?;
+    widget_renderer.render_pixels(fg_color, &grid_points)?;
 
     // Draw text
     let font = include_bytes!("../resources/roboto/Roboto-Regular.ttf") as &[u8];
@@ -177,7 +165,7 @@ fn test_device(device: &mut ChipsDevice, sys_info: &mut SystemInfo) -> Result<()
     layout.append(fonts, &TextStyle::new(" ", 35.0, 0));
     layout.append(fonts, &TextStyle::new(&gpu_usage_percent, 35.0, 0));
 
-    widget_renderer.render_text(&layout, fonts, 500, 100, Color::new(255, 255, 255))?;
+    widget_renderer.render_text(&layout, fonts, 500, 100, fg_color)?;
 
     Ok(())
 }
@@ -201,7 +189,7 @@ impl eframe::App for App {
                 None => ui.label("Failed to locate device."),
             };
 
-            ui.image(egui::include_image!("test_image.png"));
+            ui.image(egui::include_image!("test_image_2.png"));
         });
     }
 }

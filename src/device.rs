@@ -103,9 +103,9 @@ impl ChipsDevice {
         }
 
         // Convert to RGB so we have a known pixel format to convert from
-        let image = image.as_rgb8().ok_or_else(|| ChipsError::ImageFormat)?;
+        let image = image.to_rgb8();
 
-        let mut buf = ChipsDevice::image_to_buffer(image);
+        let mut buf = ChipsDevice::image_to_buffer(&image);
         self.send_command_simple(197, x, y, x + width - 1, y + height - 1)?;
         self.write_to_serial_port(&mut buf)?;
         thread::sleep(Duration::from_millis(10));
